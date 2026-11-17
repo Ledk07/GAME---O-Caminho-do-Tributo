@@ -3,7 +3,7 @@ import pygame
 import sys
 from settings import *
 from player import Player
-from level import Level1
+from level import Level1, Level2
 
 def main():
     pygame.init()
@@ -12,25 +12,33 @@ def main():
     clock = pygame.time.Clock()
 
     font_hud = pygame.font.SysFont("arial", 20, bold=True)
-    font_msg = pygame.font.SysFont("arial", 22, bold=True)
+    font_card = pygame.font.SysFont("arial", 18, bold=False)
 
-    level = Level1()
+    levels = [Level1(), Level2()]
+    current_idx = 0
+    level = levels[current_idx]
     player = Player(*level.spawn_pos)
 
     while True:
-        # Eventos
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
 
             if event.type == pygame.KEYDOWN:
-                # Reinício rápido (essencial no estilo Level Devil)
+                # Reinício rápido da fase atual
                 if event.key == pygame.K_r:
                     level.reset()
                     player = Player(*level.spawn_pos)
 
-        # Atualização de Lógica
+                # Avançar para a próxima fase ao vencer
+                if level.won and event.key in (pygame.K_RETURN, pygame.K_SPACE):
+                    current_idx = (current_idx + 1) % len(levels)
+                    level = levels[current_idx]
+                    level.reset()
+                    player = Player(*level.spawn_pos)
+
+        # Atualização
         player.update(level.platforms)
         level.update(player)
 
@@ -39,39 +47,52 @@ def main():
         level.draw(screen, font_hud)
         player.draw(screen)
 
-        # HUD Superior
-        status_text = "Nota Fiscal: EMITIDA (Infraestrutura Segura)" if level.nota_fiscal_emitida else "Nota Fiscal: NÃO EMITIDA (Cuidado!)"
-        status_color = GOAL_COLOR if level.nota_fiscal_emitida else SPIKE_COLOR
-        hud_surf = font_hud.render(f"Fase 1: O Desconto sem Nota | {status_text}", True, status_color)
+        # HUD Superior dinâmico
+        status_text, status_color = level.get_hud_info()
+        hud_surf = font_hud.render(status_text, True, status_color)
         screen.blit(hud_surf, (20, 20))
 
-        # Banner de Feedback na Morte
+        # Banner de Morte
         if not player.alive:
             overlay = pygame.Surface((WIDTH, 90))
             overlay.fill(TEXT_BG)
             screen.blit(overlay, (0, HEIGHT // 2 - 45))
 
             msg_surf = font_hud.render(level.death_message, True, WHITE)
-            msg_rect = msg_surf.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 12))
-            screen.blit(msg_surf, msg_rect)
+            screen.blit(msg_surf, msg_surf.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 12)))
 
             sub_surf = font_hud.render("Pressione R para tentar novamente", True, SPIKE_COLOR)
-            sub_rect = sub_surf.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 18))
-            screen.blit(sub_surf, sub_rect)
+            screen.blit(sub_surf, sub_surf.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 18)))
 
         # Banner de Vitória
+        # Card Educativo de Vitória
         if level.won:
-            overlay = pygame.Surface((WIDTH, 90))
-            overlay.fill(GOAL_COLOR)
-            screen.blit(overlay, (0, HEIGHT // 2 - 45))
+            # Escurece o fundo do jogo para dar destaque ao card
+            dim_bg = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+            dim_bg.fill((0, 0, 0, 160))
+            screen.blit(dim_bg, (0, 0))
 
-            win_surf = font_hud.render("Fase Concluída! O tributo virou infraestrutura pública.", True, WHITE)
-            win_rect = win_surf.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 12))
-            screen.blit(win_surf, win_rect)
+            # Caixa do Card
+            card_rect = pygame.Rect(0, 0, 680, 250)
+            card_rect.center = (WIDTH // 2, HEIGHT // 2)
+            pygame.draw.rect(screen, BG_COLOR, card_rect, border_radius=12)
+            pygame.draw.rect(screen, GOAL_COLOR, card_rect, width=4, border_radius=12)
 
-            sub_surf = font_hud.render("Pressione R para jogar novamente", True, WHITE)
-            sub_rect = sub_surf.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 18))
-            screen.blit(sub_surf, sub_rect)
+            # Cabeçalho verde do Card
+            header_rect = pygame.Rect(card_rect.x, card_rect.y, card_rect.width, 48)
+            pygame.draw.rect(screen, GOAL_COLOR, header_rect, border_top_left_radius=10, border_top_right_radius=10)
+            title_surf = font_hud.render(level.edu_card["title"], True, WHITE)
+            screen.blit(title_surf, title_surf.get_rect(center=header_rect.center))
+
+            # Tópicos educativos
+            for i, point in enumerate(level.edu_card["points"]):
+                pt_surf = font_hud.render(point, True, TEXT_BG)
+                screen.blit(pt_surf, (card_rect.x + 28, card_rect.y + 72 + i * 36))
+
+            # Rodapé com instrução de avanço
+            next_label = "Pressione ESPAÇO ou ENTER para a próxima fase" if current_idx < len(levels) - 1 else "Prototipo Concluído! Pressione ESPAÇO para reiniciar"
+            sub_surf = font_hud.render(next_label, True, GOAL_COLOR)
+            screen.blit(sub_surf, sub_surf.get_rect(center=(WIDTH // 2, card_rect.bottom - 26)))
 
         pygame.display.flip()
         clock.tick(FPS)

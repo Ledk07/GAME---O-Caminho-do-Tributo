@@ -57,4 +57,49 @@ class Player:
             self.alive = False
 
     def draw(self, surface):
-        pygame.draw.rect(surface, PLAYER_COLOR, self.rect, border_radius=4)
+        if not self.alive:
+            return
+
+        # 1. Corpo principal: Retângulo escuro e arredondado (Corpo)
+        pygame.draw.rect(surface, PLAYER_COLOR, self.rect, border_radius=6)
+
+        # 2. Detalhe de Sombra: Uma borda ou base levemente mais escura para dar profundidade
+        sombra_rect = pygame.Rect(self.rect.x + 2, self.rect.bottom - 6, self.rect.width - 4, 4)
+        pygame.draw.rect(surface, (15, 15, 15), sombra_rect, border_radius=2)
+
+        # 3. Lógica dos Olhos dinâmicos (expressão estilo Level Devil)
+        # O tamanho dos olhos e a pupila
+        olho_largura, olho_altura = 6, 8
+        pupila_largura, pupila_altura = 3, 4
+
+        # Determina para onde os olhos olham com base na direção do movimento (vel_x)
+        deslocamento_olhar = 0
+        if self.vel_x > 0:
+            deslocamento_olhar = 3   # Olha para a direita
+        elif self.vel_x < 0:
+            deslocamento_olhar = -3  # Olha para a esquerda
+
+        # Altura dos olhos (se estiver caindo ou pulando, os olhos sobem ou descem um pouco)
+        deslocamento_altura = 0
+        if self.vel_y < -2:
+            deslocamento_altura = -2  # Olhando para cima ao pular
+        elif self.vel_y > 2:
+            deslocamento_altura = 2   # Olhando para baixo ao cair
+
+        # Posições de referência para os olhos dentro da cabeça
+        olho_esq_x = self.rect.x + 6 + deslocamento_olhar
+        olho_dir_x = self.rect.x + 18 + deslocamento_olhar
+        olho_y = self.rect.y + 8 + deslocamento_altura
+
+        # Desenhar o "Branco" dos Olhos
+        olho_esq = pygame.Rect(olho_esq_x, olho_y, olho_largura, olho_altura)
+        olho_dir = pygame.Rect(olho_dir_x, olho_y, olho_largura, olho_altura)
+        pygame.draw.rect(surface, WHITE, olho_esq, border_radius=2)
+        pygame.draw.rect(surface, WHITE, olho_dir, border_radius=2)
+
+        # Desenhar as "Pupilas" (olhando para a mesma direção de movimento)
+        direcao_pupila_x = 1 if self.vel_x >= 0 else -1
+        pupila_esq = pygame.Rect(olho_esq_x + 1 + direcao_pupila_x, olho_y + 2, pupila_largura, pupila_altura)
+        pupila_dir = pygame.Rect(olho_dir_x + 1 + direcao_pupila_x, olho_y + 2, pupila_largura, pupila_altura)
+        pygame.draw.rect(surface, PLAYER_COLOR, pupila_esq, border_radius=1)
+        pygame.draw.rect(surface, PLAYER_COLOR, pupila_dir, border_radius=1)

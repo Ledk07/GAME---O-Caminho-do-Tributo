@@ -16,3 +16,6 @@ GOAL_COLOR = (46, 160, 67)      # Verde cidadania
 NF_COLOR = (40, 110, 220)       # Azul Nota Fiscal
 WHITE = (255, 255, 255)
 TEXT_BG = (25, 25, 25)
+TRANSPARENCY_COLOR = (138, 43, 226)  # Roxo (Portal da Transparência)
+FAKE_WALL_COLOR = (210, 70, 70)      # Vermelho claro (Obra fantasma revelada)
+REAL_WALL_COLOR = (46, 160, 67)
