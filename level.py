@@ -1,307 +1,352 @@
 # level.py
 import pygame
+import math
 from settings import *
 
-
-class Level1:
+class BaseLevel:
+    """Classe base que gerencia comportamentos e renderizações comuns."""
     def __init__(self):
-        self.title = "Fase 1: O Desconto sem Nota"
+        self.won = False
+        self.platforms = []
+        self.spikes = []
+        self.goal = pygame.Rect(0, 0, 40, 70)
+        self.spawn_pos = (40, 460)
+        self.death_message = ""
+        self.edu_card = {}
+        self.shake_intensity = 0
+        
+        # Fontes internas de placas e avisos do cenário
+        self.font_sign = pygame.font.SysFont("arial", 12, bold=True)
+        self.font_plate = pygame.font.SysFont("arial", 14, bold=True)
+
+    def check_hazards(self, player):
+        for spike in self.spikes:
+            if player.rect.colliderect(spike):
+                player.kill()
+                self.shake_intensity = 8
+
+        if player.alive and player.rect.colliderect(self.goal):
+            self.won = True
+
+    def draw_common(self, surface):
+        # Plataformas
+        for plat in self.platforms:
+            if plat.get("visible", True):
+                pygame.draw.rect(surface, plat["color"], plat["rect"], border_radius=4)
+
+        # Espinhos
+        for spike in self.spikes:
+            for x in range(spike.left, spike.right, 20):
+                pts = [(x, spike.bottom), (x + 10, spike.top), (x + 20, spike.bottom)]
+                pygame.draw.polygon(surface, SPIKE_COLOR, pts)
+
+        # Porta Final de Cidadania
+        pygame.draw.rect(surface, GOAL_COLOR, self.goal, border_radius=6)
+        pygame.draw.circle(surface, WHITE, (self.goal.right - 8, self.goal.centery), 3)
+
+
+# ==========================================================
+# FASE 1: O DILEMA DA NOTA FISCAL
+# ==========================================================
+class Level1(BaseLevel):
+    def __init__(self):
+        super().__init__()
+        self.title = "Fase 1: O Dilema da Nota Fiscal"
         self.reset()
 
     def reset(self):
-        self.spawn_pos = (40, 460)
+        super().__init__()
+        self.spawn_pos = (35, 470)
         self.nota_fiscal_emitida = False
-        self.trap1_triggered = False
-        self.trap2_triggered = False
-        self.death_message = ""
-        self.win_message = "Fase Concluída! O tributo virou infraestrutura pública."
-        self.won = False
+        self.trap_pit_triggered = False
 
         self.edu_card = {
-            "title": "POR QUE PEDIR A NOTA FISCAL?",
+            "title": "POR QUE EXIGIR NOTA FISCAL?",
             "points": [
-                "• Direito do Consumidor: garante troca e assistência do produto.",
-                "• Combate à Sonegação: evita que o imposto pago fique retido.",
-                "• Retorno à Sociedade: financia saúde, educação e obras públicas."
+                "• Armadilha do Desconto: Sem nota, o imposto fica no bolso do mau comerciante.",
+                "• Garantia do Consumidor: Sem documento fiscal, você perde o direito de troca.",
+                "• Retorno Coletivo: Cada nota emitida financia escolas, asfalto e postos de saúde."
             ]
         }
 
         self.platforms = [
-            # --- ANDAR INFERIOR ---
-            {"id": "floor_left", "rect": pygame.Rect(0, 520, 260, 80), "solid": True, "falling": False, "color": WALL_COLOR},
-            {"id": "step_mid", "rect": pygame.Rect(330, 490, 120, 20), "solid": True, "falling": False, "color": WALL_COLOR},
-            {"id": "floor_right", "rect": pygame.Rect(520, 460, 280, 140), "solid": True, "falling": False, "color": WALL_COLOR},
+            # Chão Inicial
+            {"id": "start_floor", "rect": pygame.Rect(0, 520, 180, 80), "solid": True, "color": WALL_COLOR},
+            
+            # CAMINHO DA TENTAÇÃO (Desconto sem Nota - Ponte Falsa que desaba)
+            {"id": "trap_bridge", "rect": pygame.Rect(180, 520, 240, 24), "solid": True, "falling": False, "color": WALL_COLOR},
+            {"id": "trap_floor_end", "rect": pygame.Rect(420, 520, 100, 80), "solid": True, "color": WALL_COLOR},
 
-            # Degraus de subida para o 2º andar (lado direito)
-            {"id": "climb1", "rect": pygame.Rect(680, 380, 100, 18), "solid": True, "falling": False, "color": WALL_COLOR},
-            {"id": "climb2", "rect": pygame.Rect(550, 300, 100, 18), "solid": True, "falling": False, "color": WALL_COLOR},
+            # CAMINHO LEGAL (Subida pelos balcões comerciais)
+            {"id": "shop_step1", "rect": pygame.Rect(70, 420, 100, 18), "solid": True, "color": WALL_COLOR},
+            {"id": "shop_step2", "rect": pygame.Rect(180, 340, 110, 18), "solid": True, "color": WALL_COLOR},
+            {"id": "shop_counter", "rect": pygame.Rect(50, 250, 150, 22), "solid": True, "color": WALL_COLOR},
 
-            # --- ANDAR SUPERIOR ---
-            # Plataforma esquerda onde fica o item NF
-            {"id": "upper_left", "rect": pygame.Rect(0, 230, 230, 24), "solid": True, "falling": False, "color": WALL_COLOR},
-            # Ponte Dupla (Armadilhas se não tiver NF!)
-            {"id": "bridge1", "rect": pygame.Rect(230, 230, 160, 24), "solid": True, "falling": False, "color": WALL_COLOR},
-            {"id": "bridge2", "rect": pygame.Rect(390, 230, 160, 24), "solid": True, "falling": False, "color": WALL_COLOR},
-            # Plataforma da porta final no topo direito
-            {"id": "upper_goal", "rect": pygame.Rect(630, 190, 170, 24), "solid": True, "falling": False, "color": WALL_COLOR},
+            # PASSARELA PÚBLICA (Só surge com a NF emitida)
+            {"id": "bridge1", "rect": pygame.Rect(230, 240, 170, 22), "solid": False, "visible": False, "color": REAL_WALL_COLOR},
+            {"id": "bridge2", "rect": pygame.Rect(420, 240, 170, 22), "solid": False, "visible": False, "color": REAL_WALL_COLOR},
+
+            # Destino no topo direito
+            {"id": "goal_floor", "rect": pygame.Rect(620, 200, 180, 400), "solid": True, "color": WALL_COLOR},
         ]
 
-        # Espinhos no abismo inferior
         self.spikes = [
-            pygame.Rect(260, 575, 260, 25)
+            pygame.Rect(180, 575, 440, 25)
         ]
 
-        # Nota Fiscal fica no canto superior esquerdo (obriga o jogador a subir e buscar)
-        self.nf_item = pygame.Rect(45, 170, 36, 36)
-
-        # Dois gatilhos sequenciais na ponte superior
-        self.trigger1 = pygame.Rect(260, 180, 50, 50)
-        self.trigger2 = pygame.Rect(420, 180, 50, 50)
-
-        # Porta final no topo direito
-        self.goal = pygame.Rect(720, 120, 40, 70)
+        # Item Nota Fiscal no balcão legal
+        self.nf_base_y = 195
+        self.nf_item = pygame.Rect(95, self.nf_base_y, 44, 38)
+        
+        # Gatilho da tentação
+        self.trigger_trap = pygame.Rect(210, 480, 60, 50)
+        self.goal = pygame.Rect(710, 130, 40, 70)
 
     def get_hud_info(self):
         if self.nota_fiscal_emitida:
-            return f"{self.title} | Nota Fiscal: EMITIDA (Ponte Segura)", GOAL_COLOR
-        return f"{self.title} | Nota Fiscal: NÃO EMITIDA (Busque a NF no alto!)", SPIKE_COLOR
+            return f"{self.title} | NF Emitida! Passarela pública construída!", GOAL_COLOR
+        if self.trap_pit_triggered:
+            return f"{self.title} | O asfalto ruiu! Suba pelo comércio e exija a NF!", SPIKE_COLOR
+        return f"{self.title} | Escolha: Atalho 'Sem Nota' ou Comércio Legal?", COIN_COLOR
 
     def update(self, player):
+        self.nf_item.y = int(self.nf_base_y + math.sin(pygame.time.get_ticks() * 0.005) * 4)
+
         if not player.alive or self.won:
             return
 
+        # Coleta da NF
         if not self.nota_fiscal_emitida and player.rect.colliderect(self.nf_item):
             self.nota_fiscal_emitida = True
+            self.shake_intensity = 5
+            for plat in self.platforms:
+                if plat["id"] in ("bridge1", "bridge2"):
+                    plat["solid"] = True
+                    plat["visible"] = True
 
-        # Gatilho 1 e Gatilho 2 derrubam as duas metades da ponte se não houver NF
-        if not self.nota_fiscal_emitida:
-            if player.rect.colliderect(self.trigger1) and not self.trap1_triggered:
-                self.trap1_triggered = True
-                for plat in self.platforms:
-                    if plat["id"] == "bridge1":
-                        plat["solid"] = False
-                        plat["falling"] = True
-
-            if player.rect.colliderect(self.trigger2) and not self.trap2_triggered:
-                self.trap2_triggered = True
-                for plat in self.platforms:
-                    if plat["id"] == "bridge2":
-                        plat["solid"] = False
-                        plat["falling"] = True
+        # Armadilha de quem pega o atalho sem nota
+        if not self.nota_fiscal_emitida and player.rect.colliderect(self.trigger_trap):
+            self.trap_pit_triggered = True
+            self.shake_intensity = 7
+            for plat in self.platforms:
+                if plat["id"] == "trap_bridge":
+                    plat["falling"] = True
+                    plat["solid"] = False
 
         for plat in self.platforms:
-            if plat["falling"]:
-                plat["rect"].y += 12
+            if plat.get("falling", False) and plat["rect"].y < HEIGHT + 60:
+                plat["rect"].y += 14
 
-        for spike in self.spikes:
-            if player.rect.colliderect(spike):
-                player.alive = False
-
+        self.check_hazards(player)
         if not player.alive:
-            if not self.nota_fiscal_emitida:
-                self.death_message = "Sem Nota Fiscal, a ponte superior desabou por falta de verba!"
+            if self.trap_pit_triggered:
+                self.death_message = "Caiu no conto do 'desconto sem nota'! Sem arrecadação, o asfalto cedeu."
             else:
-                self.death_message = "Cuidado com os saltos entre os andares!"
-
-        if player.rect.colliderect(self.goal):
-            self.won = True
+                self.death_message = "Suba pelos degraus da esquerda até o caixa e exija sua NF!"
 
     def draw(self, surface, font):
-        for plat in self.platforms:
-            pygame.draw.rect(surface, plat["color"], plat["rect"], border_radius=3)
+        self.draw_common(surface)
 
-        for spike in self.spikes:
-            for x in range(spike.left, spike.right, 20):
-                points = [(x, spike.bottom), (x + 10, spike.top), (x + 20, spike.bottom)]
-                pygame.draw.polygon(surface, SPIKE_COLOR, points)
+        # Placa 1: A tentação do desconto
+        if not self.trap_pit_triggered:
+            placa_rect = pygame.Rect(185, 485, 140, 24)
+            pygame.draw.rect(surface, (230, 80, 80), placa_rect, border_radius=4)
+            msg = self.font_sign.render("SEM NOTA: -20% >", True, WHITE)
+            surface.blit(msg, msg.get_rect(center=placa_rect.center))
 
-        pygame.draw.rect(surface, GOAL_COLOR, self.goal, border_radius=4)
+        # Placa 2: Balcão do comércio legal
+        placa_balcao = pygame.Rect(55, 290, 140, 22)
+        pygame.draw.rect(surface, WALL_COLOR, placa_balcao, border_radius=4)
+        msg_balcao = self.font_sign.render("BALCÃO DO COMÉRCIO", True, WHITE)
+        surface.blit(msg_balcao, msg_balcao.get_rect(center=placa_balcao.center))
 
+        # Desenho da NF
         if not self.nota_fiscal_emitida:
-            pygame.draw.rect(surface, NF_COLOR, self.nf_item, border_radius=4)
-            label = font.render("NF", True, WHITE)
-            surface.blit(label, label.get_rect(center=self.nf_item.center))
+            pygame.draw.rect(surface, NF_COLOR, self.nf_item, border_radius=6)
+            lbl = font.render("NF", True, WHITE)
+            surface.blit(lbl, lbl.get_rect(center=self.nf_item.center))
 
 
-class Level2:
+# ==========================================================
+# FASE 2: A OBRA FANTASMA E O CANTEIRO DE OBRAS
+# ==========================================================
+class Level2(BaseLevel):
     def __init__(self):
-        self.title = "Fase 2: Obra Fantasma"
+        super().__init__()
+        self.title = "Fase 2: Obra Fantasma e Canteiro"
         self.reset()
 
     def reset(self):
-        self.spawn_pos = (40, 480)
+        super().__init__()
+        self.spawn_pos = (35, 480)
         self.transparencia_ativada = False
-        self.death_message = ""
-        self.win_message = "Boa! O controle social revelou todas as obras fantasmas."
-        self.won = False
 
         self.edu_card = {
-            "title": "O QUE É CONTROLE SOCIAL?",
+            "title": "O QUE É FISCALIZAÇÃO SOCIAL?",
             "points": [
-                "• Portal da Transparência: permite consultar gastos públicos.",
-                "• Fiscalização Cidadã: ajuda a identificar obras fantasmas.",
-                "• Cidadania Ativa: o tributo só vira benefício quando fiscalizado."
+                "• Obra Fantasma: Obra que recebe verba pública, mas nunca sai do papel.",
+                "• Portal da Transparência: Ferramenta pública para checar gastos da prefeitura e governo.",
+                "• Controle Social: O cidadão tem o direito e o dever de denunciar obras paralisadas."
             ]
         }
 
+        # Plataforma móvel que patrulha após a fiscalização
+        self.platform_mover = pygame.Rect(320, 270, 90, 18)
+        self.mover_dir = 1
+        self.mover_speed = 2.5
+
         self.platforms = [
-            # Base inferior esquerda
-            {"id": "start", "rect": pygame.Rect(0, 530, 240, 70), "solid": True, "falling": False, "color": WALL_COLOR},
+            {"id": "start", "rect": pygame.Rect(0, 530, 200, 70), "solid": True, "color": WALL_COLOR},
 
-            # Isca inferior (parece uma ponte direta à direita, mas a segunda metade é FALSA!)
-            {"id": "bait_real", "rect": pygame.Rect(300, 510, 120, 20), "solid": True, "falling": False, "color": WALL_COLOR},
-            {"id": "fake_low", "rect": pygame.Rect(470, 490, 140, 20), "solid": False, "falling": False, "color": WALL_COLOR},
+            # Andaimes de subida até a auditoria
+            {"id": "scaffold_1", "rect": pygame.Rect(60, 430, 100, 18), "solid": True, "color": WALL_COLOR},
+            {"id": "scaffold_2", "rect": pygame.Rect(180, 350, 100, 18), "solid": True, "color": WALL_COLOR},
+            {"id": "scaffold_top", "rect": pygame.Rect(30, 240, 160, 22), "solid": True, "color": WALL_COLOR},
 
-            # Caminho de subida pela esquerda até o Portal da Transparência
-            {"id": "left_step1", "rect": pygame.Rect(40, 430, 110, 18), "solid": True, "falling": False, "color": WALL_COLOR},
-            {"id": "left_step2", "rect": pygame.Rect(180, 340, 110, 18), "solid": True, "falling": False, "color": WALL_COLOR},
-            {"id": "top_left", "rect": pygame.Rect(20, 240, 150, 22), "solid": True, "falling": False, "color": WALL_COLOR},
+            # Obras Fantasmas no ar (parecem seguras, mas não têm colisão sólida)
+            {"id": "fake_1", "rect": pygame.Rect(260, 210, 100, 18), "solid": False, "color": WALL_COLOR},
+            {"id": "fake_2", "rect": pygame.Rect(440, 180, 100, 18), "solid": False, "color": WALL_COLOR},
 
-            # Degraus superiores falsos (obras desviadas)
-            {"id": "fake_high1", "rect": pygame.Rect(260, 210, 110, 20), "solid": False, "falling": False, "color": WALL_COLOR},
-            {"id": "fake_high2", "rect": pygame.Rect(450, 180, 110, 20), "solid": False, "falling": False, "color": WALL_COLOR},
+            # Plataforma móvel mecânica (inativa até fiscalizar)
+            {"id": "mover", "rect": self.platform_mover, "solid": False, "visible": False, "color": REAL_WALL_COLOR},
 
-            # Caminho verdadeiro no topo (aparece em verde ao ativar o GOV)
-            {"id": "real_high1", "rect": pygame.Rect(240, 270, 130, 20), "solid": False, "falling": False, "color": BG_COLOR},
-            {"id": "real_high2", "rect": pygame.Rect(430, 240, 140, 20), "solid": False, "falling": False, "color": BG_COLOR},
+            # Apoio do lado direito
+            {"id": "step_right", "rect": pygame.Rect(530, 260, 90, 20), "solid": False, "visible": False, "color": REAL_WALL_COLOR},
 
-            # Plataforma final no topo direito
-            {"id": "end", "rect": pygame.Rect(630, 200, 170, 400), "solid": True, "falling": False, "color": WALL_COLOR},
+            # Destino final
+            {"id": "end", "rect": pygame.Rect(650, 200, 150, 400), "solid": True, "color": WALL_COLOR},
         ]
 
-        # Espinhos cobrindo todo o fosso inferior
-        self.spikes = [
-            pygame.Rect(240, 575, 390, 25)
-        ]
-
-        # Totem de Fiscalização no topo esquerdo
-        self.audit_item = pygame.Rect(55, 185, 44, 36)
-
-        # Porta final
+        self.spikes = [pygame.Rect(200, 575, 450, 25)]
+        self.totem_base_y = 185
+        self.audit_item = pygame.Rect(60, self.totem_base_y, 50, 38)
         self.goal = pygame.Rect(720, 130, 40, 70)
 
     def get_hud_info(self):
         if self.transparencia_ativada:
-            return f"{self.title} | Transparência: ATIVA (Obras falsas reveladas!)", TRANSPARENCY_COLOR
-        return f"{self.title} | Transparência: INATIVA (Suba e ative o GOV!)", SPIKE_COLOR
+            return f"{self.title} | AUDITADO! Obra retomada e plataforma ativada!", TRANSPARENCY_COLOR
+        return f"{self.title} | Obra Parada! Suba no totem GOV para auditar!", SPIKE_COLOR
 
     def update(self, player):
+        self.audit_item.y = int(self.totem_base_y + math.sin(pygame.time.get_ticks() * 0.005) * 4)
+
+        # Movimento da plataforma mecânica regularizada
+        if self.transparencia_ativada:
+            self.platform_mover.x += int(self.mover_speed * self.mover_dir)
+            if self.platform_mover.x > 420:
+                self.mover_dir = -1
+            elif self.platform_mover.x < 240:
+                self.mover_dir = 1
+
         if not player.alive or self.won:
             return
 
         if not self.transparencia_ativada and player.rect.colliderect(self.audit_item):
             self.transparencia_ativada = True
+            self.shake_intensity = 6
             for plat in self.platforms:
-                if plat["id"] in ("fake_low", "fake_high1", "fake_high2"):
-                    plat["color"] = FAKE_WALL_COLOR
-                elif plat["id"] in ("real_high1", "real_high2"):
+                if plat["id"] in ("fake_1", "fake_2"):
+                    plat["color"] = FAKE_WALL_COLOR  # Fica vermelho: desvio identificado
+                elif plat["id"] == "mover":
                     plat["solid"] = True
-                    plat["color"] = REAL_WALL_COLOR
+                    plat["visible"] = True
+                elif plat["id"] == "step_right":
+                    plat["solid"] = True
+                    plat["visible"] = True
 
-        for spike in self.spikes:
-            if player.rect.colliderect(spike):
-                player.alive = False
-
+        self.check_hazards(player)
         if not player.alive:
-            if not self.transparencia_ativada:
-                self.death_message = "Obra fantasma! Escale pela esquerda e ative o portal GOV."
-            else:
-                self.death_message = "Siga pelas plataformas verdes fiscalizadas até o topo!"
-
-        if player.rect.colliderect(self.goal):
-            self.won = True
+            self.death_message = "Obra fantasma! Ative o Portal GOV para auditar e retomar os trabalhos."
 
     def draw(self, surface, font):
-        for plat in self.platforms:
-            if plat["id"] in ("real_high1", "real_high2") and not self.transparencia_ativada:
-                continue
-            pygame.draw.rect(surface, plat["color"], plat["rect"], border_radius=3)
+        self.draw_common(surface)
 
-        for spike in self.spikes:
-            for x in range(spike.left, spike.right, 20):
-                points = [(x, spike.bottom), (x + 10, spike.top), (x + 20, spike.bottom)]
-                pygame.draw.polygon(surface, SPIKE_COLOR, points)
+        # Placa de obra pública no centro da tela
+        placa_box = pygame.Rect(260, 460, 280, 55)
+        bg_col = (40, 110, 60) if self.transparencia_ativada else (180, 60, 50)
+        pygame.draw.rect(surface, bg_col, placa_box, border_radius=6)
+        pygame.draw.rect(surface, WHITE, placa_box, width=2, border_radius=6)
 
-        pygame.draw.rect(surface, GOAL_COLOR, self.goal, border_radius=4)
+        t1 = "REFORMA PÚBLICA: R$ 8.000.000"
+        t2 = "STATUS: AUDITADA E ENTREGUE" if self.transparencia_ativada else "STATUS: PARADA (DESVIO SUSPEITO)"
+        s1 = self.font_plate.render(t1, True, WHITE)
+        s2 = self.font_sign.render(t2, True, WHITE)
+        surface.blit(s1, s1.get_rect(center=(placa_box.centerx, placa_box.y + 18)))
+        surface.blit(s2, s2.get_rect(center=(placa_box.centerx, placa_box.y + 38)))
 
+        # Totem de Fiscalização
         if not self.transparencia_ativada:
-            pygame.draw.rect(surface, TRANSPARENCY_COLOR, self.audit_item, border_radius=4)
-            label = font.render("GOV", True, WHITE)
-            surface.blit(label, label.get_rect(center=self.audit_item.center))
+            pygame.draw.rect(surface, TRANSPARENCY_COLOR, self.audit_item, border_radius=6)
+            lbl = font.render("GOV", True, WHITE)
+            surface.blit(lbl, lbl.get_rect(center=self.audit_item.center))
 
 
-class Level3:
+# ==========================================================
+# FASE 3: A BALANÇA DO ORÇAMENTO PÚBLICO
+# ==========================================================
+class Level3(BaseLevel):
     def __init__(self):
-        self.title = "Fase 3: O Buraco no Orçamento"
+        super().__init__()
+        self.title = "Fase 3: A Balança do Orçamento"
         self.reset()
 
     def reset(self):
+        super().__init__()
         self.spawn_pos = (40, 480)
         self.coins_collected = 0
         self.total_coins = 5
         self.orcamento_aprovado = False
         self.trap_triggered = False
-        self.death_message = ""
-        self.win_message = "Orçamento completo! Os serviços públicos chegaram à população."
-        self.won = False
 
         self.edu_card = {
             "title": "COMO FUNCIONA O ORÇAMENTO PÚBLICO?",
             "points": [
-                "• Recursos Limitados: O Estado só investe o que consegue arrecadar.",
-                "• Prioridades Sociais: Saúde, educação e transporte disputam verbas.",
-                "• Impacto Coletivo: Sem arrecadação justa, serviços essenciais param."
+                "• Arrecadação Consciente: O poder público só consegue investir se houver receita.",
+                "• Prioridades Sociais: Saúde, mobilidade e segurança demandam planejamento e verba.",
+                "• Impacto da Sonegação: Sem a contribuição de todos, pontes e serviços essenciais fecham."
             ]
         }
 
         self.platforms = [
-            # Base inferior onde fica a Urna
-            {"id": "start", "rect": pygame.Rect(0, 530, 410, 70), "solid": True, "falling": False, "color": WALL_COLOR},
+            {"id": "start", "rect": pygame.Rect(0, 530, 360, 70), "solid": True, "color": WALL_COLOR},
 
-            # Circuito aéreo para coletar as 5 moedas de tributo
-            {"id": "step_a", "rect": pygame.Rect(80, 420, 110, 18), "solid": True, "falling": False, "color": WALL_COLOR},
-            {"id": "step_b", "rect": pygame.Rect(240, 340, 110, 18), "solid": True, "falling": False, "color": WALL_COLOR},
-            {"id": "step_c", "rect": pygame.Rect(70, 250, 120, 18), "solid": True, "falling": False, "color": WALL_COLOR},
-            {"id": "step_d", "rect": pygame.Rect(260, 190, 120, 18), "solid": True, "falling": False, "color": WALL_COLOR},
+            # Circuito vertical para coletar tributos
+            {"id": "step_a", "rect": pygame.Rect(70, 440, 120, 18), "solid": True, "color": WALL_COLOR},
+            {"id": "step_b", "rect": pygame.Rect(230, 350, 110, 18), "solid": True, "color": WALL_COLOR},
+            {"id": "step_c", "rect": pygame.Rect(60, 260, 120, 18), "solid": True, "color": WALL_COLOR},
+            {"id": "step_d", "rect": pygame.Rect(220, 180, 130, 18), "solid": True, "color": WALL_COLOR},
 
-            # Plataforma 1 do abismo (foge para a direita se pular sem depositar na urna!)
-            {"id": "public_service1", "rect": pygame.Rect(450, 480, 95, 22), "solid": True, "falling": False, "color": WALL_COLOR},
-            # Plataforma 2 do abismo (degrau final até a porta)
-            {"id": "public_service2", "rect": pygame.Rect(580, 410, 90, 22), "solid": True, "falling": False, "color": WALL_COLOR},
+            # Pontes de Serviços Públicos (fogem se tentar cruzar sem orçamento)
+            {"id": "pub_service1", "rect": pygame.Rect(410, 460, 100, 22), "solid": True, "color": WALL_COLOR},
+            {"id": "pub_service2", "rect": pygame.Rect(550, 390, 100, 22), "solid": True, "color": WALL_COLOR},
 
-            # Plataforma final
-            {"id": "end", "rect": pygame.Rect(700, 350, 100, 250), "solid": True, "falling": False, "color": WALL_COLOR},
+            {"id": "end", "rect": pygame.Rect(690, 320, 110, 280), "solid": True, "color": WALL_COLOR},
         ]
 
-        # Espinhos no abismo
-        self.spikes = [
-            pygame.Rect(410, 575, 290, 25)
+        self.spikes = [pygame.Rect(360, 575, 330, 25)]
+
+        # Circuito de Moedas
+        self.coin_spots = [
+            (125, 405), (280, 315), (115, 225), (285, 145), (190, 485)
         ]
+        self.coins = [pygame.Rect(x, y, 22, 22) for x, y in self.coin_spots]
 
-        # 5 Moedas de Tributo espalhadas pelo circuito
-        self.coins = [
-            pygame.Rect(125, 385, 22, 22),  # Moeda 1
-            pygame.Rect(285, 305, 22, 22),  # Moeda 2
-            pygame.Rect(115, 215, 22, 22),  # Moeda 3
-            pygame.Rect(310, 155, 22, 22),  # Moeda 4 (topo)
-            pygame.Rect(220, 485, 22, 22),  # Moeda 5 (chão)
-        ]
-
-        # Urna de Arrecadação na beira do abismo
-        self.urn = pygame.Rect(345, 480, 44, 50)
-
-        # Gatilho invisível no salto
-        self.trigger_zone = pygame.Rect(405, 380, 55, 150)
-
-        # Porta final
-        self.goal = pygame.Rect(730, 280, 40, 70)
+        # Urna do Tesouro Público
+        self.urn_base_y = 475
+        self.urn = pygame.Rect(290, self.urn_base_y, 50, 55)
+        self.trigger_void = pygame.Rect(365, 360, 60, 160)
+        self.goal = pygame.Rect(730, 250, 40, 70)
 
     def get_hud_info(self):
         if self.orcamento_aprovado:
-            return f"{self.title} | Orçamento: APROVADO (100%)", REAL_WALL_COLOR
+            return f"{self.title} | Orçamento: 100% ARRECADADO (Infraestrutura Pronta)", REAL_WALL_COLOR
         return f"{self.title} | Tributos: {self.coins_collected}/{self.total_coins} (Deposite na Urna)", COIN_COLOR
 
     def update(self, player):
+        ticks = pygame.time.get_ticks()
+        for i, coin in enumerate(self.coins):
+            coin.y = int(self.coin_spots[i][1] + math.sin(ticks * 0.006 + i) * 4)
+
         if not player.alive or self.won:
             return
 
@@ -310,54 +355,46 @@ class Level3:
                 self.coins.remove(coin)
                 self.coins_collected += 1
 
+        # Depósito dos tributos na Urna
         if not self.orcamento_aprovado and player.rect.colliderect(self.urn):
             if self.coins_collected == self.total_coins:
                 self.orcamento_aprovado = True
+                self.shake_intensity = 6
                 for plat in self.platforms:
-                    if plat["id"] in ("public_service1", "public_service2"):
+                    if plat["id"] in ("pub_service1", "pub_service2"):
                         plat["color"] = REAL_WALL_COLOR
 
-        if player.rect.colliderect(self.trigger_zone) and not self.orcamento_aprovado:
+        # Tentativa de cruzar sem orçamento
+        if player.rect.colliderect(self.trigger_void) and not self.orcamento_aprovado:
             self.trap_triggered = True
 
-        # Se pular sem orçamento, as duas pontes recuam para dentro da parede final
         if self.trap_triggered and not self.orcamento_aprovado:
             for plat in self.platforms:
-                if plat["id"] in ("public_service1", "public_service2") and plat["rect"].x < 710:
-                    plat["rect"].x += 15
+                if plat["id"] in ("pub_service1", "pub_service2") and plat["rect"].x < 700:
+                    plat["rect"].x += 16
 
-        for spike in self.spikes:
-            if player.rect.colliderect(spike):
-                player.alive = False
-
+        self.check_hazards(player)
         if not player.alive:
             if self.coins_collected < self.total_coins:
-                self.death_message = "Orçamento incompleto! Colete os 5 tributos e deposite na urna."
-            elif not self.orcamento_aprovado:
-                self.death_message = "Encoste na Urna azul para liberar a verba das pontes!"
+                self.death_message = "Cofre público vazio! Colete os 5 tributos para financiar as pontes."
             else:
-                self.death_message = "Cuidado com o salto duplo sobre o abismo!"
-
-        if player.rect.colliderect(self.goal):
-            self.won = True
+                self.death_message = "Deposite as moedas na Urna 'R$' antes de tentar cruzar!"
 
     def draw(self, surface, font):
-        for plat in self.platforms:
-            pygame.draw.rect(surface, plat["color"], plat["rect"], border_radius=3)
-
-        for spike in self.spikes:
-            for x in range(spike.left, spike.right, 20):
-                points = [(x, spike.bottom), (x + 10, spike.top), (x + 20, spike.bottom)]
-                pygame.draw.polygon(surface, SPIKE_COLOR, points)
+        self.draw_common(surface)
 
         for coin in self.coins:
             pygame.draw.ellipse(surface, COIN_COLOR, coin)
             lbl = font.render("$", True, TEXT_BG)
             surface.blit(lbl, lbl.get_rect(center=coin.center))
 
+        # Urna com letreiro
         urn_col = REAL_WALL_COLOR if self.orcamento_aprovado else URN_COLOR
-        pygame.draw.rect(surface, urn_col, self.urn, border_radius=4)
-        urn_lbl = font.render("R$", True, WHITE)
-        surface.blit(urn_lbl, urn_lbl.get_rect(center=self.urn.center))
+        pygame.draw.rect(surface, urn_col, self.urn, border_radius=6)
+        lbl = font.render("R$", True, WHITE)
+        surface.blit(lbl, lbl.get_rect(center=self.urn.center))
 
-        pygame.draw.rect(surface, GOAL_COLOR, self.goal, border_radius=4)
+        placa_urna = pygame.Rect(self.urn.x - 20, self.urn.y - 24, 90, 20)
+        pygame.draw.rect(surface, WALL_COLOR, placa_urna, border_radius=3)
+        txt = "ORÇAMENTO" if not self.orcamento_aprovado else "APROVADO"
+        surface.blit(self.font_sign.render(txt, True, WHITE), self.font_sign.render(txt, True, WHITE).get_rect(center=placa_urna.center))

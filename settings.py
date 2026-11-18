@@ -2,22 +2,24 @@
 WIDTH, HEIGHT = 800, 600
 FPS = 60
 
-# Física
+# Física de Plataforma
 GRAVITY = 0.8
 PLAYER_SPEED = 5
 JUMP_FORCE = -15
+COYOTE_TIME = 6        # Frames de tolerância ao cair de uma plataforma
+JUMP_BUFFER_TIME = 6   # Frames para memorizar o pulo antes de tocar o chão
 
-# Paleta de Cores (Estilo minimalista / alto contraste)
-BG_COLOR = (238, 226, 200)      # Bege claro (estilo Level Devil)
-WALL_COLOR = (60, 45, 35)       # Marrom escuro
-PLAYER_COLOR = (30, 30, 30)     # Preto/Cinza escuro
-SPIKE_COLOR = (200, 40, 40)     # Vermelho alerta
-GOAL_COLOR = (46, 160, 67)      # Verde cidadania
-NF_COLOR = (40, 110, 220)       # Azul Nota Fiscal
+# Paleta de Cores (Estilo Level Devil)
+BG_COLOR = (238, 226, 200)          # Bege claro
+WALL_COLOR = (55, 40, 30)           # Marrom café profundo
+PLAYER_COLOR = (25, 25, 25)         # Grafite escuro
+SPIKE_COLOR = (210, 45, 45)         # Vermelho alerta
+GOAL_COLOR = (40, 160, 75)          # Verde sucesso
+NF_COLOR = (35, 105, 220)           # Azul tributo
+TRANSPARENCY_COLOR = (130, 40, 215) # Roxo Portal GOV
+FAKE_WALL_COLOR = (220, 80, 80)     # Vermelho desvio
+REAL_WALL_COLOR = (40, 160, 75)     # Verde investimento
+COIN_COLOR = (240, 180, 25)         # Dourado
+URN_COLOR = (30, 90, 155)           # Azul escuro urna
 WHITE = (255, 255, 255)
-TEXT_BG = (25, 25, 25)
-TRANSPARENCY_COLOR = (138, 43, 226)  # Roxo (Portal da Transparência)
-FAKE_WALL_COLOR = (210, 70, 70)      # Vermelho claro (Obra fantasma revelada)
-REAL_WALL_COLOR = (46, 160, 67)
-COIN_COLOR = (230, 175, 30)      
-URN_COLOR = (35, 95, 160)
+TEXT_BG = (20, 20, 20)

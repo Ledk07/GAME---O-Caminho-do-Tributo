@@ -1,14 +1,53 @@
 # player.py
 import pygame
+import random
 from settings import *
+
+class DeathParticle:
+    def __init__(self, x, y):
+        self.rect = pygame.Rect(x, y, random.randint(5, 9), random.randint(5, 9))
+        self.vel_x = random.uniform(-6, 6)
+        self.vel_y = random.uniform(-10, -2)
+        self.gravity = 0.6
+        self.color = PLAYER_COLOR
+
+    def update(self):
+        self.vel_y += self.gravity
+        self.rect.x += int(self.vel_x)
+        self.rect.y += int(self.vel_y)
+
+    def draw(self, surface):
+        pygame.draw.rect(surface, self.color, self.rect, border_radius=2)
 
 class Player:
     def __init__(self, x, y):
+        self.start_x = x
+        self.start_y = y
         self.rect = pygame.Rect(x, y, 32, 32)
         self.vel_x = 0
         self.vel_y = 0
         self.on_ground = False
         self.alive = True
+        
+        # Game Feel: buffers de pulo
+        self.coyote_timer = 0
+        self.jump_buffer = 0
+        
+        # Game Feel: deformação (squash and stretch)
+        self.scale_x = 1.0
+        self.scale_y = 1.0
+        
+        # Partículas de morte
+        self.death_particles = []
+
+    def kill(self):
+        if self.alive:
+            self.alive = False
+            # Cria estilhaços cômicos estilo Level Devil
+            for _ in range(16):
+                px = self.rect.x + random.randint(0, self.rect.width)
+                py = self.rect.y + random.randint(0, self.rect.height)
+                self.death_particles.append(DeathParticle(px, py))
 
     def handle_input(self):
         keys = pygame.key.get_pressed()
@@ -18,17 +57,40 @@ class Player:
             self.vel_x = -PLAYER_SPEED
         if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
             self.vel_x = PLAYER_SPEED
-        if (keys[pygame.K_SPACE] or keys[pygame.K_w] or keys[pygame.K_UP]) and self.on_ground:
-            self.vel_y = JUMP_FORCE
-            self.on_ground = False
+
+        # Registra intenção de pulo no buffer
+        if keys[pygame.K_SPACE] or keys[pygame.K_w] or keys[pygame.K_UP]:
+            self.jump_buffer = JUMP_BUFFER_TIME
 
     def update(self, platforms):
         if not self.alive:
+            for p in self.death_particles:
+                p.update()
             return
 
         self.handle_input()
 
-        # 1. Movimento Horizontal + Colisão
+        # Atualiza contadores de tolerância
+        if self.on_ground:
+            self.coyote_timer = COYOTE_TIME
+        else:
+            if self.coyote_timer > 0:
+                self.coyote_timer -= 1
+
+        if self.jump_buffer > 0:
+            self.jump_buffer -= 1
+
+        # Executa pulo com tolerância
+        if self.jump_buffer > 0 and self.coyote_timer > 0:
+            self.vel_y = JUMP_FORCE
+            self.coyote_timer = 0
+            self.jump_buffer = 0
+            self.on_ground = False
+            # Estica verticalmente no pulo
+            self.scale_x = 0.75
+            self.scale_y = 1.3
+
+        # Movimento Horizontal
         self.rect.x += self.vel_x
         for plat in platforms:
             if plat["solid"] and self.rect.colliderect(plat["rect"]):
@@ -37,9 +99,10 @@ class Player:
                 elif self.vel_x < 0:
                     self.rect.left = plat["rect"].right
 
-        # 2. Movimento Vertical (Gravidade) + Colisão
+        # Movimento Vertical
         self.vel_y += GRAVITY
         self.rect.y += int(self.vel_y)
+        was_on_ground = self.on_ground
         self.on_ground = False
 
         for plat in platforms:
@@ -48,58 +111,52 @@ class Player:
                     self.rect.bottom = plat["rect"].top
                     self.vel_y = 0
                     self.on_ground = True
+                    # Achata ao aterrissar com impacto
+                    if not was_on_ground:
+                        self.scale_x = 1.35
+                        self.scale_y = 0.7
                 elif self.vel_y < 0:
                     self.rect.top = plat["rect"].bottom
                     self.vel_y = 0
 
-        # Morte se cair fora da tela
-        if self.rect.top > HEIGHT:
-            self.alive = False
+        # Recuperação elástica da deformação
+        self.scale_x += (1.0 - self.scale_x) * 0.2
+        self.scale_y += (1.0 - self.scale_y) * 0.2
+
+        if self.rect.top > HEIGHT + 40:
+            self.kill()
 
     def draw(self, surface):
         if not self.alive:
+            for p in self.death_particles:
+                p.draw(surface)
             return
 
-        # 1. Corpo principal: Retângulo escuro e arredondado (Corpo)
-        pygame.draw.rect(surface, PLAYER_COLOR, self.rect, border_radius=6)
+        # Render com Squash & Stretch a partir da base do personagem
+        draw_w = int(self.rect.width * self.scale_x)
+        draw_h = int(self.rect.height * self.scale_y)
+        draw_x = self.rect.centerx - draw_w // 2
+        draw_y = self.rect.bottom - draw_h
 
-        # 2. Detalhe de Sombra: Uma borda ou base levemente mais escura para dar profundidade
-        sombra_rect = pygame.Rect(self.rect.x + 2, self.rect.bottom - 6, self.rect.width - 4, 4)
-        pygame.draw.rect(surface, (15, 15, 15), sombra_rect, border_radius=2)
+        draw_rect = pygame.Rect(draw_x, draw_y, draw_w, draw_h)
+        pygame.draw.rect(surface, PLAYER_COLOR, draw_rect, border_radius=6)
 
-        # 3. Lógica dos Olhos dinâmicos (expressão estilo Level Devil)
-        # O tamanho dos olhos e a pupila
-        olho_largura, olho_altura = 6, 8
-        pupila_largura, pupila_altura = 3, 4
+        # Sombra na base do corpo
+        sombra = pygame.Rect(draw_x + 2, draw_rect.bottom - 5, max(1, draw_w - 4), 4)
+        pygame.draw.rect(surface, (15, 15, 15), sombra, border_radius=2)
 
-        # Determina para onde os olhos olham com base na direção do movimento (vel_x)
-        deslocamento_olhar = 0
-        if self.vel_x > 0:
-            deslocamento_olhar = 3   # Olha para a direita
-        elif self.vel_x < 0:
-            deslocamento_olhar = -3  # Olha para a esquerda
+        # Olhos expressivos
+        olho_w, olho_h = 6, 8
+        desloc_x = 3 if self.vel_x > 0 else (-3 if self.vel_x < 0 else 0)
+        desloc_y = -2 if self.vel_y < -2 else (2 if self.vel_y > 2 else 0)
 
-        # Altura dos olhos (se estiver caindo ou pulando, os olhos sobem ou descem um pouco)
-        deslocamento_altura = 0
-        if self.vel_y < -2:
-            deslocamento_altura = -2  # Olhando para cima ao pular
-        elif self.vel_y > 2:
-            deslocamento_altura = 2   # Olhando para baixo ao cair
-
-        # Posições de referência para os olhos dentro da cabeça
-        olho_esq_x = self.rect.x + 6 + deslocamento_olhar
-        olho_dir_x = self.rect.x + 18 + deslocamento_olhar
-        olho_y = self.rect.y + 8 + deslocamento_altura
-
-        # Desenhar o "Branco" dos Olhos
-        olho_esq = pygame.Rect(olho_esq_x, olho_y, olho_largura, olho_altura)
-        olho_dir = pygame.Rect(olho_dir_x, olho_y, olho_largura, olho_altura)
+        olho_esq = pygame.Rect(draw_rect.x + 6 + desloc_x, draw_rect.y + 7 + desloc_y, olho_w, olho_h)
+        olho_dir = pygame.Rect(draw_rect.x + 18 + desloc_x, draw_rect.y + 7 + desloc_y, olho_w, olho_h)
         pygame.draw.rect(surface, WHITE, olho_esq, border_radius=2)
         pygame.draw.rect(surface, WHITE, olho_dir, border_radius=2)
 
-        # Desenhar as "Pupilas" (olhando para a mesma direção de movimento)
-        direcao_pupila_x = 1 if self.vel_x >= 0 else -1
-        pupila_esq = pygame.Rect(olho_esq_x + 1 + direcao_pupila_x, olho_y + 2, pupila_largura, pupila_altura)
-        pupila_dir = pygame.Rect(olho_dir_x + 1 + direcao_pupila_x, olho_y + 2, pupila_largura, pupila_altura)
-        pygame.draw.rect(surface, PLAYER_COLOR, pupila_esq, border_radius=1)
-        pygame.draw.rect(surface, PLAYER_COLOR, pupila_dir, border_radius=1)
+        pupila_dir_x = 1 if self.vel_x >= 0 else -1
+        pup_esq = pygame.Rect(olho_esq.x + 1 + pupila_dir_x, olho_esq.y + 2, 3, 4)
+        pup_dir = pygame.Rect(olho_dir.x + 1 + pupila_dir_x, olho_dir.y + 2, 3, 4)
+        pygame.draw.rect(surface, PLAYER_COLOR, pup_esq)
+        pygame.draw.rect(surface, PLAYER_COLOR, pup_dir)
