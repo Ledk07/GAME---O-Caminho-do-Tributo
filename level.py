@@ -104,10 +104,10 @@ class Level1(BaseLevel):
 
     def get_hud_info(self):
         if self.nota_fiscal_emitida:
-            return f"{self.title} | NF Emitida! Passarela pública construída!", GOAL_COLOR
+            return "Fase 1: Nota Fiscal | NF Emitida! Passarela construída", GOAL_COLOR
         if self.trap_pit_triggered:
-            return f"{self.title} | O asfalto ruiu! Suba pelo comércio e exija a NF!", SPIKE_COLOR
-        return f"{self.title} | Escolha: Atalho 'Sem Nota' ou Comércio Legal?", COIN_COLOR
+            return "Fase 1: Nota Fiscal | Asfalto ruiu! Suba e exija a NF no caixa", SPIKE_COLOR
+        return "Fase 1: Nota Fiscal | Atalho sem nota ou Comércio Legal?", COIN_COLOR
 
     def update(self, player):
         self.nf_item.y = int(self.nf_base_y + math.sin(pygame.time.get_ticks() * 0.005) * 4)
@@ -224,8 +224,8 @@ class Level2(BaseLevel):
 
     def get_hud_info(self):
         if self.transparencia_ativada:
-            return f"{self.title} | AUDITADO! Obra retomada e plataforma ativada!", TRANSPARENCY_COLOR
-        return f"{self.title} | Obra Parada! Suba no totem GOV para auditar!", SPIKE_COLOR
+            return "Fase 2: Obra Fantasma | AUDITADA! Obra retomada e móvel liberado", TRANSPARENCY_COLOR
+        return "Fase 2: Obra Fantasma | Obra Parada! Ative o totem GOV para auditar", SPIKE_COLOR
 
     def update(self, player):
         self.audit_item.y = int(self.totem_base_y + math.sin(pygame.time.get_ticks() * 0.005) * 4)
@@ -339,8 +339,8 @@ class Level3(BaseLevel):
 
     def get_hud_info(self):
         if self.orcamento_aprovado:
-            return f"{self.title} | Orçamento: 100% ARRECADADO (Infraestrutura Pronta)", REAL_WALL_COLOR
-        return f"{self.title} | Tributos: {self.coins_collected}/{self.total_coins} (Deposite na Urna)", COIN_COLOR
+            return "Fase 3: Orçamento | 100% ARRECADADO (Infraestrutura Pronta)", REAL_WALL_COLOR
+        return f"Fase 3: Orçamento | Tributos: {self.coins_collected}/{self.total_coins} (Deposite na Urna)", COIN_COLOR
 
     def update(self, player):
         ticks = pygame.time.get_ticks()
