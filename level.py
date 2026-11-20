@@ -4,7 +4,6 @@ import math
 from settings import *
 
 class BaseLevel:
-    """Classe base que gerencia comportamentos e renderizações comuns."""
     def __init__(self):
         self.won = False
         self.platforms = []
@@ -14,8 +13,7 @@ class BaseLevel:
         self.death_message = ""
         self.edu_card = {}
         self.shake_intensity = 0
-        
-        # Fontes internas de placas e avisos do cenário
+      
         self.font_sign = pygame.font.SysFont("arial", 12, bold=True)
         self.font_plate = pygame.font.SysFont("arial", 14, bold=True)
 
@@ -45,9 +43,9 @@ class BaseLevel:
         pygame.draw.circle(surface, WHITE, (self.goal.right - 8, self.goal.centery), 3)
 
 
-# ==========================================================
+
 # FASE 1: O DILEMA DA NOTA FISCAL
-# ==========================================================
+
 class Level1(BaseLevel):
     def __init__(self):
         super().__init__()
