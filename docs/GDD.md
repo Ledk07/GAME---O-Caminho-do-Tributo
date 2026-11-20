@@ -8,7 +8,8 @@
 * **Projeto Extensionista:** EducaJogo Fiscal — Aprendizado de forma lúdica
 * **Articulação:** NAF (Núcleo de Apoio Contábil e Fiscal) Unichristus e Receita Federal do Brasil
 * **Disciplina:** Tecnologia e Desenvolvimento de Jogos Digitais (2026.2)
-* **Integrantes da Equipe:** [Preencher com os nomes e matrículas dos integrantes]
+* **Integrantes da Equipe:** Esdras Sales Nobre 
+    
 
 ---
 
